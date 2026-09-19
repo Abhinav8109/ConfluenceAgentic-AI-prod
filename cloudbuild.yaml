@@ -1,0 +1,28 @@
+steps:
+  # 1. Build container image using Cloud Build
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloudops-repo/cloudops-ai-assistant:$SHORT_SHA', '.']
+
+  # 2. Push container to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloudops-repo/cloudops-ai-assistant:$SHORT_SHA']
+
+  # 3. Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'cloudops-ai-assistant'
+      - '--image'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloudops-repo/cloudops-ai-assistant:$SHORT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,GCP_REGION=us-central1,GEMINI_MODEL=gemini-2.5-flash'
+
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloudops-repo/cloudops-ai-assistant:$SHORT_SHA'

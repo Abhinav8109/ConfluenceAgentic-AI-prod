@@ -22,6 +22,8 @@
 ## 📑 Table of Contents
 
 - [System Architecture](#-system-architecture)
+- [The Actual Truth: How Fast Search & Grounding Works](#-the-actual-truth-how-fast-search--grounding-works)
+- [Dynamic Multi-Environment Settings](#-dynamic-multi-environment-settings)
 - [Core Capabilities](#-core-capabilities)
 - [Live Knowledge Base Overview](#-live-knowledge-base-overview)
 - [Technology Stack](#-technology-stack)
@@ -43,7 +45,7 @@
 
 ## 🏛 System Architecture
 
-The following diagram illustrates the end-to-end request lifecycle and reasoning pipeline:
+The following diagram illustrates the complete request lifecycle, security boundary, and Confluence retrieval mesh:
 
 ```
                                       ┌─────────────────────────────────────────┐
@@ -82,6 +84,83 @@ The following diagram illustrates the end-to-end request lifecycle and reasoning
                                                                          │ Latency SLA, Runbook Cards, Direct URLs│
                                                                          └───────────────────────────────────────┘
 ```
+
+---
+
+## 🔍 The Actual Truth: How Fast Search & Grounding Works
+
+Many AI wrappers dump entire documents into prompts or rely on naive vector databases that suffer from high indexing latency, stale data, and token bloat. **CloudOps AI uses a deterministic 6-stage Grounding Pipeline** engineered for real-time SRE response times:
+
+```
+[User Query] 
+     │
+     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ STAGE 1: Heuristic Security Inspection                                   │
+│ • Regex pattern analysis for jailbreaks ("ignore previous", "leak key")  │
+│ • Rejects malicious prompts immediately before API calls                 │
+└────────────────────────────────────┬─────────────────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ STAGE 2: Intent Analysis & Keyword Distillation                          │
+│ • Stop-words removed (what, is, how, should, in, of, etc.)               │
+│ • Domain intent classified: Incident, Escalation, Change, GCP, AWS, IAM  │
+│ • Core searchable terms extracted (up to 6 high-entropy keywords)        │
+└────────────────────────────────────┬─────────────────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ STAGE 3: Asynchronous High-Speed Confluence CQL Execution                │
+│ • Executes Confluence Query Language (CQL) against REST API v2:          │
+│   cql = space = "AITEST" AND (text ~ "term1" OR title ~ "term1" ...)    │
+│ • Persistent HTTP/2 connection pooling with keep-alive via httpx         │
+│ • Fetches metadata + compressed storage XML in parallel                  │
+└────────────────────────────────────┬─────────────────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ STAGE 4: Section Extraction & Token Compression                          │
+│ • Does NOT send entire bloated HTML pages into the LLM context!          │
+│ • Parses page structure by header blocks (<h2>, <h3>)                    │
+│ • Scores individual sections against query intent & extracts top blocks  │
+│ • Reduces 50,000+ characters of boilerplate down to ~2,500 key tokens    │
+└────────────────────────────────────┬─────────────────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ STAGE 5: Context Boundary Isolation                                      │
+│ • Retrieved text is wrapped in <confluence_untrusted_data> XML tags      │
+│ • Instructs LLM to treat data strictly as passive reference facts        │
+│ • Neutralizes prompt injection embedded inside Confluence page bodies    │
+└────────────────────────────────────┬─────────────────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ STAGE 6: Vertex AI Gemini 2.5 Flash Synthesis & Source Linking          │
+│ • Synthesizes answer strictly grounded in retrieved evidence             │
+│ • Formats clean markdown links: [Open Runbook](url)                      │
+│ • Generates source card metadata: Space, Page Title, Relevance Score     │
+│ • Returns structured JSON with latency telemetry                         │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ⚙️ Dynamic Multi-Environment Settings
+
+The platform is **100% reusable across different projects, spaces, and Atlassian organizations** without touching any code or restarting the server.
+
+### Features of the Settings Engine:
+1. **Live Connection Test (`POST /api/settings/test`)**:
+   - Performs a non-destructive, isolated dry-run against any Confluence Base URL, User Email, API Token, and Space Key.
+   - Detects `401 Unauthorized` (bad PAT or email), `404 Not Found` (invalid Space Key), and unreachable domains before saving.
+2. **Instant Hot-Reload (`POST /api/settings`)**:
+   - Reconfigures the running `ConfluenceClient` singleton in memory immediately.
+   - Persists credentials into `.env` so settings survive container restarts.
+   - Updates dashboard UI badges (`Live Connected`, active domain, target space) instantly.
+3. **Dual Mode Switching**:
+   - Toggle between **Live Confluence Cloud** (live REST calls) and **Local Mock Store** (offline air-gapped demo).
 
 ---
 
@@ -258,20 +337,62 @@ Navigate to **`http://localhost:8080`** in your browser to access the CloudOps A
   }
   ```
 
-### 2. Service Health & Telemetry
-- **URL**: `/api/health`
+### 2. Environment Settings (`GET /api/settings`)
 - **Method**: `GET`
-- **Response**: Returns GCP Project, Vertex AI model status, Confluence API connectivity, and active page count.
+- **Response**:
+  ```json
+  {
+    "base_url": "https://your-domain.atlassian.net",
+    "user_email": "user@example.com",
+    "space_key": "AITEST",
+    "use_mock": false,
+    "has_token": true,
+    "masked_token": "ATAT••••••••7CDA",
+    "health": { "status": "ok", "mode": "live", "space": "AITEST" }
+  }
+  ```
 
-### 3. Sources Registry
-- **URL**: `/api/sources`
-- **Method**: `GET`
-- **Response**: Returns all registered runbooks, last modified dates, and direct links.
-
-### 4. Session Clear
-- **URL**: `/api/clear`
+### 3. Test Confluence Connection (`POST /api/settings/test`)
 - **Method**: `POST`
-- **Payload**: `{"session_id": "your-session-id"}`
+- **Payload**:
+  ```json
+  {
+    "base_url": "https://your-domain.atlassian.net",
+    "user_email": "user@example.com",
+    "api_token": "your_api_token",
+    "space_key": "AITEST"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "status_code": 200,
+    "message": "Successfully verified! Space 'CloudOps Knowledge Base' (AITEST) is active and accessible.",
+    "pages_accessible": 25
+  }
+  ```
+
+### 4. Switch Environment at Runtime (`POST /api/settings`)
+- **Method**: `POST`
+- **Payload**:
+  ```json
+  {
+    "base_url": "https://another-domain.atlassian.net",
+    "user_email": "sre@another-domain.com",
+    "api_token": "another_token",
+    "space_key": "PROD_OPS",
+    "use_mock": false
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "message": "Successfully switched environment to Space 'PROD_OPS' (Live Confluence).",
+    "health": { "status": "ok", "mode": "live", "space": "PROD_OPS" }
+  }
+  ```
 
 ---
 
@@ -280,7 +401,7 @@ Navigate to **`http://localhost:8080`** in your browser to access the CloudOps A
 CloudOps AI employs a multi-tiered defense architecture:
 
 1. **Deterministic Prompt Injection Scanning**: Analyzes inbound user prompts against regex patterns and token distributions commonly used in jailbreak attempts (`ignore previous instructions`, `leak prompt`, `DAN mode`).
-2. **Context Isolation Boundary**: Unsafe HTML/XML content retrieved from external Confluence pages is sanitized and enclosed in delimiter boundary tags.
+2. **Context Isolation Boundary**: Unsafe HTML/XML content retrieved from external Confluence pages is sanitized and enclosed in `<confluence_untrusted_data>` tags.
 3. **Automated Secret Redaction**: Eliminates API keys, Bearer tokens, and PAT hashes from output responses before reaching the browser.
 4. **Target Sandboxing**: All outgoing hyperlinks enforce `target="_blank" rel="noopener noreferrer"` to prevent tab-nabbing vulnerabilities.
 

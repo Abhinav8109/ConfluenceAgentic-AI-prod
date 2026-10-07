@@ -48,21 +48,206 @@ class ConfluenceClient:
             "User-Agent": "CloudOps-AIAgent/1.0",
         }
 
+    def reconfigure(
+        self,
+        base_url: Optional[str] = None,
+        email: Optional[str] = None,
+        api_token: Optional[str] = None,
+        space_key: Optional[str] = None,
+        use_mock: Optional[bool] = None,
+    ):
+        """
+        Dynamically reconfigures the client credentials, target URL, space, and mode at runtime.
+        """
+        if base_url is not None:
+            self.base_url = base_url.strip().rstrip("/")
+        if email is not None:
+            self.email = email.strip()
+        if api_token is not None and api_token.strip():
+            self.api_token = api_token.strip()
+        if space_key is not None:
+            self.space_key = space_key.strip().upper()
+        if use_mock is not None:
+            self.use_mock = use_mock
+        else:
+            self.use_mock = not bool(self.api_token)
+
+        if not self.use_mock and self.api_token:
+            self.auth = (self.email, self.api_token)
+            logger.info(f"Reconfigured live ConfluenceClient for {self.base_url} (Space: {self.space_key}, User: {self.email})")
+        else:
+            self.auth = None
+            logger.info(f"Reconfigured mock ConfluenceClient (Space: {self.space_key})")
+
+    @classmethod
+    async def test_connection(
+        cls,
+        base_url: str,
+        email: str,
+        api_token: str,
+        space_key: str,
+    ) -> Dict[str, Any]:
+        """
+        Performs an isolated verification test against a target Confluence instance
+        without mutating the current active client instance.
+        """
+        clean_url = (base_url or "").strip().rstrip("/")
+        clean_email = (email or "").strip()
+        clean_token = (api_token or "").strip()
+        clean_space = (space_key or "").strip().upper()
+
+        if not clean_url.startswith("http://") and not clean_url.startswith("https://"):
+            return {
+                "success": False,
+                "status_code": 400,
+                "message": "Invalid URL format. Confluence Base URL must start with https:// or http://",
+            }
+
+        if not clean_email or "@" not in clean_email:
+            return {
+                "success": False,
+                "status_code": 400,
+                "message": "Invalid email format. Please provide a valid Atlassian account email address.",
+            }
+
+        if not clean_token:
+            return {
+                "success": False,
+                "status_code": 400,
+                "message": "API token is required for live Confluence connection testing.",
+            }
+
+        if not clean_space:
+            return {
+                "success": False,
+                "status_code": 400,
+                "message": "Confluence Space Key is required.",
+            }
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "X-Atlassian-Token": "no-check",
+            "User-Agent": "CloudOps-AIAgent/1.0",
+        }
+        auth = (clean_email, clean_token)
+        test_url = f"{clean_url}/wiki/rest/api/space/{clean_space}"
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                resp = await client.get(test_url, auth=auth, headers=headers)
+                if resp.status_code == 200:
+                    space_data = resp.json()
+                    space_name = space_data.get("name", clean_space)
+
+                    # Query accessible pages count
+                    count_url = f"{clean_url}/wiki/rest/api/content"
+                    pages_count = 0
+                    try:
+                        count_resp = await client.get(
+                            count_url,
+                            params={"spaceKey": clean_space, "limit": 1},
+                            auth=auth,
+                            headers=headers,
+                        )
+                        if count_resp.status_code == 200:
+                            pages_count = count_resp.json().get("size", 0)
+                    except Exception:
+                        pass
+
+                    return {
+                        "success": True,
+                        "status_code": 200,
+                        "message": f"Successfully verified! Space '{space_name}' ({clean_space}) is active and accessible.",
+                        "space_name": space_name,
+                        "space_key": clean_space,
+                        "base_url": clean_url,
+                        "user_email": clean_email,
+                        "pages_accessible": pages_count,
+                    }
+                elif resp.status_code in (401, 403):
+                    return {
+                        "success": False,
+                        "status_code": resp.status_code,
+                        "message": f"Authentication failed (HTTP {resp.status_code}). Check that email ({clean_email}) and API token are correct and have access to space '{clean_space}'.",
+                    }
+                elif resp.status_code == 404:
+                    return {
+                        "success": False,
+                        "status_code": 404,
+                        "message": f"Space '{clean_space}' not found at {clean_url} (HTTP 404). Please verify that the space key is spelled correctly in Confluence.",
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "status_code": resp.status_code,
+                        "message": f"Confluence returned error (HTTP {resp.status_code}): {resp.text[:200]}",
+                    }
+        except httpx.ConnectError:
+            return {
+                "success": False,
+                "status_code": 0,
+                "message": f"Cannot connect to host {clean_url}. Please check the domain name and your network connectivity.",
+            }
+        except httpx.TimeoutException:
+            return {
+                "success": False,
+                "status_code": 0,
+                "message": f"Connection to {clean_url} timed out (10s limit).",
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "status_code": 500,
+                "message": f"Connection test failed: {str(e)}",
+            }
+
     async def check_health(self) -> Dict[str, Any]:
         """Validates connectivity to Confluence."""
         if self.use_mock:
-            return {"status": "ok", "mode": "mock", "space": self.space_key, "pages_count": len(mock_store.pages)}
+            return {
+                "status": "ok",
+                "mode": "mock",
+                "space": self.space_key,
+                "base_url": self.base_url,
+                "email": self.email,
+                "pages_count": len(mock_store.pages)
+            }
 
         url = f"{self.base_url}/wiki/rest/api/space/{self.space_key}"
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
                 resp = await client.get(url, auth=self.auth, headers=self._headers())
                 if resp.status_code == 200:
-                    return {"status": "ok", "mode": "live", "space": self.space_key, "data": resp.json()}
-                return {"status": "error", "mode": "live", "code": resp.status_code, "message": resp.text}
+                    space_data = resp.json()
+                    return {
+                        "status": "ok",
+                        "mode": "live",
+                        "space": self.space_key,
+                        "space_name": space_data.get("name", self.space_key),
+                        "base_url": self.base_url,
+                        "email": self.email,
+                        "data": space_data,
+                    }
+                return {
+                    "status": "error",
+                    "mode": "live",
+                    "code": resp.status_code,
+                    "space": self.space_key,
+                    "base_url": self.base_url,
+                    "email": self.email,
+                    "message": resp.text[:200]
+                }
         except Exception as e:
             logger.error(f"Confluence health check failed: {e}")
-            return {"status": "error", "mode": "live", "message": str(e)}
+            return {
+                "status": "error",
+                "mode": "live",
+                "space": self.space_key,
+                "base_url": self.base_url,
+                "email": self.email,
+                "message": str(e)
+            }
 
     async def search_pages(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """

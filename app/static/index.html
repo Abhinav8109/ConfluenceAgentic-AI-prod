@@ -54,10 +54,14 @@
 
     <div class="sidebar-footer">
       <div class="footer-status">
-        <span class="status-dot" aria-hidden="true"></span>
-        <span>System Connected</span>
+        <span class="status-dot" id="sidebar-status-dot" aria-hidden="true"></span>
+        <span id="sidebar-status-text">System Connected</span>
       </div>
-      <div class="footer-meta">Knowledge Base Synchronized</div>
+      <div class="footer-meta" id="sidebar-footer-meta">Knowledge Base Synchronized</div>
+      <button class="sidebar-settings-btn" id="sidebar-settings-btn" title="Confluence Settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Confluence Settings</span>
+      </button>
     </div>
   </aside>
 
@@ -75,11 +79,17 @@
         </button>
         <div class="topbar-title">
           <span class="topbar-name">CloudOps AI</span>
-          <span class="topbar-badge" aria-label="Grounded Knowledge">Grounded Runbooks</span>
+          <span class="topbar-badge" id="topbar-badge" aria-label="Grounded Knowledge">Grounded Runbooks</span>
         </div>
       </div>
 
       <div class="topbar-actions" role="toolbar" aria-label="Toolbar actions">
+        <button class="icon-btn" id="settings-btn" title="Confluence Settings" aria-label="Settings" aria-haspopup="dialog">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
         <button class="icon-btn" id="theme-toggle" title="Toggle light/dark theme" aria-label="Toggle theme">
           <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
           <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -192,6 +202,145 @@
   <button class="cp-reset" id="cp-reset">Reset to defaults</button>
 </div>
 <div class="customize-overlay" id="customize-overlay" aria-hidden="true"></div>
+
+<!-- ═══════════════ SETTINGS MODAL ═══════════════ -->
+<div class="settings-modal" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div class="settings-header">
+    <div class="settings-title-wrap">
+      <div class="settings-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </div>
+      <div>
+        <h2 id="settings-title">Confluence &amp; Environment Settings</h2>
+        <p class="settings-desc">Easily switch between Confluence Cloud instances, update PAT keys, or connect to different project spaces.</p>
+      </div>
+    </div>
+    <button class="icon-btn" id="settings-close" title="Close settings" aria-label="Close settings">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <div class="settings-body">
+    <!-- Active Connection Status Card -->
+    <div class="settings-status-card" id="settings-status-card">
+      <div class="status-card-header">
+        <div class="status-badge" id="settings-badge">
+          <span class="status-badge-dot"></span>
+          <span id="settings-badge-text">Checking status...</span>
+        </div>
+        <span class="status-card-meta" id="settings-status-mode">Mode: Live REST API</span>
+      </div>
+      <div class="status-card-details">
+        <div class="sc-stat">
+          <span class="sc-stat-label">Target Space</span>
+          <span class="sc-stat-val" id="settings-active-space">--</span>
+        </div>
+        <div class="sc-stat">
+          <span class="sc-stat-label">Confluence Domain</span>
+          <span class="sc-stat-val sc-stat-domain" id="settings-active-domain">--</span>
+        </div>
+        <div class="sc-stat">
+          <span class="sc-stat-label">User Account</span>
+          <span class="sc-stat-val" id="settings-active-user">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alert Banner (Test results / Save status) -->
+    <div class="settings-alert hidden" id="settings-alert" role="alert">
+      <div class="alert-icon" id="settings-alert-icon"></div>
+      <div class="alert-content">
+        <div class="alert-title" id="settings-alert-title"></div>
+        <div class="alert-msg" id="settings-alert-msg"></div>
+      </div>
+      <button type="button" class="alert-close" id="settings-alert-close" aria-label="Dismiss alert">&times;</button>
+    </div>
+
+    <!-- Form Fields -->
+    <form id="settings-form" class="settings-form">
+      <div class="form-row">
+        <div class="form-group flex-2">
+          <label for="cfg-base-url">
+            Confluence Base URL <span class="req">*</span>
+            <span class="field-hint">e.g. https://your-org.atlassian.net</span>
+          </label>
+          <input type="url" id="cfg-base-url" placeholder="https://your-domain.atlassian.net" required autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="form-group flex-1">
+          <label for="cfg-space-key">
+            Space Key <span class="req">*</span>
+            <span class="field-hint">Space identifier</span>
+          </label>
+          <input type="text" id="cfg-space-key" placeholder="AITEST" required autocomplete="off" spellcheck="false" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group flex-1">
+          <label for="cfg-user-email">
+            Atlassian Account Email <span class="req">*</span>
+            <span class="field-hint">Email linked to the PAT</span>
+          </label>
+          <input type="email" id="cfg-user-email" placeholder="user@example.com" required autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="form-group flex-1">
+          <label for="cfg-api-token">
+            API Token / Access Key <span class="req">*</span>
+            <span class="field-hint">From Atlassian Security</span>
+          </label>
+          <div class="password-input-wrap">
+            <input type="password" id="cfg-api-token" placeholder="Leave empty to keep existing token" autocomplete="new-password" />
+            <button type="button" class="token-toggle-btn" id="cfg-token-toggle" title="Show / Hide token" aria-label="Toggle token visibility">
+              <svg class="eye-open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="eye-closed hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>
+          Integration Mode
+          <span class="field-hint">Choose between live cloud REST API or offline mock store</span>
+        </label>
+        <div class="mode-selector">
+          <label class="mode-card" for="cfg-mode-live">
+            <input type="radio" name="cfg-mode" id="cfg-mode-live" value="live" checked />
+            <div class="mode-card-content">
+              <span class="mode-card-title">Live Confluence Cloud</span>
+              <span class="mode-card-sub">Retrieves real-time runbooks directly via Atlassian REST API</span>
+            </div>
+          </label>
+          <label class="mode-card" for="cfg-mode-mock">
+            <input type="radio" name="cfg-mode" id="cfg-mode-mock" value="mock" />
+            <div class="mode-card-content">
+              <span class="mode-card-title">Local Mock Store</span>
+              <span class="mode-card-sub">Offline development / demo mode using pre-seeded local runbooks</span>
+            </div>
+          </label>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="settings-footer">
+    <div class="footer-left">
+      <button type="button" class="btn-secondary" id="settings-reset-btn">Reset Defaults</button>
+    </div>
+    <div class="footer-right">
+      <button type="button" class="btn-test" id="settings-test-btn">
+        <span class="btn-spinner hidden" id="test-spinner"></span>
+        <svg class="btn-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="test-btn-text">Test Connection</span>
+      </button>
+      <button type="button" class="btn-primary" id="settings-save-btn">
+        <span class="btn-spinner hidden" id="save-spinner"></span>
+        <span id="save-btn-text">Save &amp; Switch Environment</span>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="settings-overlay" id="settings-overlay" aria-hidden="true"></div>
 
 <!-- FIX: marked.js moved to end of body — no longer blocks first paint -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>

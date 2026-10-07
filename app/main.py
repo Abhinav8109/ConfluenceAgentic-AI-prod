@@ -56,6 +56,93 @@ class ChatResponse(BaseModel):
 class ClearRequest(BaseModel):
     session_id: str
 
+class SettingsTestRequest(BaseModel):
+    base_url: str
+    user_email: str
+    api_token: Optional[str] = None
+    space_key: str
+
+class SettingsUpdateRequest(BaseModel):
+    base_url: str
+    user_email: str
+    api_token: Optional[str] = None
+    space_key: str
+    use_mock: Optional[bool] = False
+
+@app.get("/api/settings")
+async def get_settings_endpoint():
+    """Returns active Confluence configuration and connectivity diagnostics."""
+    health = await confluence_client.check_health()
+    
+    masked_token = ""
+    if settings.confluence_api_token:
+        tok = settings.confluence_api_token
+        if len(tok) > 10:
+            masked_token = f"{tok[:4]}••••••••{tok[-4:]}"
+        else:
+            masked_token = "••••••••"
+
+    return {
+        "base_url": settings.confluence_base_url,
+        "user_email": settings.confluence_user_email,
+        "space_key": settings.confluence_space_key,
+        "use_mock": settings.use_mock_confluence,
+        "has_token": bool(settings.confluence_api_token),
+        "masked_token": masked_token,
+        "gcp_project_id": settings.gcp_project_id,
+        "gemini_model": settings.gemini_model,
+        "health": health,
+    }
+
+@app.post("/api/settings/test")
+async def test_settings_endpoint(req: SettingsTestRequest):
+    """Tests connectivity to a target Confluence instance without mutating active state."""
+    token = req.api_token
+    # If token was masked or omitted, fallback to currently stored token
+    if (not token or "••••" in token or "..." in token) and settings.confluence_api_token:
+        token = settings.confluence_api_token
+
+    from app.confluence.client import ConfluenceClient
+    result = await ConfluenceClient.test_connection(
+        base_url=req.base_url,
+        email=req.user_email,
+        api_token=token or "",
+        space_key=req.space_key,
+    )
+    return result
+
+@app.post("/api/settings")
+async def update_settings_endpoint(req: SettingsUpdateRequest):
+    """Dynamically updates active Confluence configuration at runtime and persists to .env."""
+    token = req.api_token
+    if (not token or "••••" in token or "..." in token):
+        token = settings.confluence_api_token
+
+    from app.config import update_runtime_settings
+    update_runtime_settings(
+        confluence_base_url=req.base_url,
+        confluence_user_email=req.user_email,
+        confluence_api_token=token,
+        confluence_space_key=req.space_key,
+        use_mock_confluence=req.use_mock,
+        persist=True,
+    )
+
+    confluence_client.reconfigure(
+        base_url=req.base_url,
+        email=req.user_email,
+        api_token=token,
+        space_key=req.space_key,
+        use_mock=req.use_mock,
+    )
+
+    health = await confluence_client.check_health()
+    return {
+        "success": True,
+        "message": f"Successfully switched environment to Space '{req.space_key}' ({'Mock' if req.use_mock else 'Live Confluence'}).",
+        "health": health,
+    }
+
 @app.get("/api/health")
 async def health_check():
     """Service health & operational telemetry check."""

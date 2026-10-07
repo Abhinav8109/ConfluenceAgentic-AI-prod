@@ -93,3 +93,80 @@ def load_secrets_from_gcp():
 
 # Execute secret lookup
 load_secrets_from_gcp()
+
+
+def persist_settings_to_env(updates: dict):
+    """
+    Persists updated settings to .env file so they survive server restarts.
+    """
+    env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
+    lines = []
+    existing_keys = set()
+    
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                stripped = line.strip()
+                if stripped and not stripped.startswith("#") and "=" in stripped:
+                    key = stripped.split("=", 1)[0].strip()
+                    if key in updates and updates[key] is not None:
+                        lines.append(f"{key}={updates[key]}\n")
+                        existing_keys.add(key)
+                        continue
+                lines.append(line)
+
+    for k, v in updates.items():
+        if k not in existing_keys and v is not None:
+            lines.append(f"{k}={v}\n")
+
+    with open(env_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+    logger.info(f"Persisted {len(updates)} settings to {env_path}")
+
+
+def update_runtime_settings(
+    confluence_base_url: Optional[str] = None,
+    confluence_user_email: Optional[str] = None,
+    confluence_api_token: Optional[str] = None,
+    confluence_space_key: Optional[str] = None,
+    use_mock_confluence: Optional[bool] = None,
+    persist: bool = True,
+) -> Settings:
+    """
+    Updates active settings in memory and optionally writes to .env.
+    """
+    global settings
+    env_updates = {}
+
+    if confluence_base_url is not None:
+        cleaned_url = confluence_base_url.strip().rstrip("/")
+        settings.confluence_base_url = cleaned_url
+        env_updates["CONFLUENCE_BASE_URL"] = cleaned_url
+
+    if confluence_user_email is not None:
+        cleaned_email = confluence_user_email.strip()
+        settings.confluence_user_email = cleaned_email
+        env_updates["CONFLUENCE_USER_EMAIL"] = cleaned_email
+
+    if confluence_api_token is not None and confluence_api_token.strip():
+        cleaned_token = confluence_api_token.strip()
+        settings.confluence_api_token = cleaned_token
+        env_updates["CONFLUENCE_API_TOKEN"] = cleaned_token
+
+    if confluence_space_key is not None:
+        cleaned_space = confluence_space_key.strip().upper()
+        settings.confluence_space_key = cleaned_space
+        env_updates["CONFLUENCE_SPACE_KEY"] = cleaned_space
+
+    if use_mock_confluence is not None:
+        settings.use_mock_confluence = use_mock_confluence
+        env_updates["USE_MOCK_CONFLUENCE"] = "true" if use_mock_confluence else "false"
+
+    if persist and env_updates:
+        try:
+            persist_settings_to_env(env_updates)
+        except Exception as e:
+            logger.warning(f"Could not persist settings to .env: {e}")
+
+    return settings
+

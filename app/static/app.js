@@ -33,11 +33,48 @@ const fontSizeSlider  = document.getElementById('font-size-slider');
 const fontSizeVal     = document.getElementById('font-size-val');
 const cpReset         = document.getElementById('cp-reset');
 
+/* ── Settings Modal DOM References ── */
+const settingsBtn         = document.getElementById('settings-btn');
+const sidebarSettingsBtn  = document.getElementById('sidebar-settings-btn');
+const settingsModal       = document.getElementById('settings-modal');
+const settingsOverlay     = document.getElementById('settings-overlay');
+const settingsClose       = document.getElementById('settings-close');
+const cfgBaseUrl          = document.getElementById('cfg-base-url');
+const cfgSpaceKey         = document.getElementById('cfg-space-key');
+const cfgUserEmail        = document.getElementById('cfg-user-email');
+const cfgApiToken         = document.getElementById('cfg-api-token');
+const cfgTokenToggle      = document.getElementById('cfg-token-toggle');
+const cfgModeLive         = document.getElementById('cfg-mode-live');
+const cfgModeMock         = document.getElementById('cfg-mode-mock');
+const settingsBadge       = document.getElementById('settings-badge');
+const settingsBadgeText   = document.getElementById('settings-badge-text');
+const settingsStatusMode  = document.getElementById('settings-status-mode');
+const settingsActiveSpace = document.getElementById('settings-active-space');
+const settingsActiveDomain= document.getElementById('settings-active-domain');
+const settingsActiveUser  = document.getElementById('settings-active-user');
+const settingsAlert       = document.getElementById('settings-alert');
+const settingsAlertTitle  = document.getElementById('settings-alert-title');
+const settingsAlertMsg    = document.getElementById('settings-alert-msg');
+const settingsAlertIcon   = document.getElementById('settings-alert-icon');
+const settingsAlertClose  = document.getElementById('settings-alert-close');
+const settingsTestBtn     = document.getElementById('settings-test-btn');
+const settingsSaveBtn     = document.getElementById('settings-save-btn');
+const settingsResetBtn    = document.getElementById('settings-reset-btn');
+const testSpinner         = document.getElementById('test-spinner');
+const saveSpinner         = document.getElementById('save-spinner');
+const testBtnText         = document.getElementById('test-btn-text');
+const saveBtnText         = document.getElementById('save-btn-text');
+const sidebarStatusDot    = document.getElementById('sidebar-status-dot');
+const sidebarStatusText   = document.getElementById('sidebar-status-text');
+const sidebarFooterMeta   = document.getElementById('sidebar-footer-meta');
+const topbarBadge         = document.getElementById('topbar-badge');
+
 /* ── State ── */
 let allSessions      = {};   // { [uuid]: { id, title, timestamp, messages[] } }
 let currentSessionId = null;
 let isStreaming      = false;
 let animRef          = null; // particle canvas RAF id
+let activeConfig     = null;
 
 /* ══════════════════════════════════════
    SESSION PERSISTENCE (localStorage)
@@ -746,13 +783,267 @@ customizeBtn.addEventListener('click', () => {
 customizeClose.addEventListener('click', closeCustomizePanel);
 customizeOverlay.addEventListener('click', closeCustomizePanel);
 
-// FIX: Escape key closes customize panel (and sidebar on mobile)
+// FIX: Escape key closes settings modal, customize panel, or sidebar
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    if (customizePanel.classList.contains('open')) { closeCustomizePanel(); return; }
-    if (isMobile() && sidebar.classList.contains('mobile-open')) { closeSidebar(); }
+    if (settingsModal && settingsModal.classList.contains('open')) { closeSettingsModal(); return; }
+    if (customizePanel && customizePanel.classList.contains('open')) { closeCustomizePanel(); return; }
+    if (isMobile() && sidebar && sidebar.classList.contains('mobile-open')) { closeSidebar(); }
   }
 });
+
+/* ══════════════════════════════════════
+   SETTINGS MODAL CONTROLLER
+══════════════════════════════════════ */
+async function loadSettings(populateForm = true) {
+  try {
+    const res = await fetch('/api/settings');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    activeConfig = data;
+
+    if (populateForm) {
+      if (cfgBaseUrl) cfgBaseUrl.value = data.base_url || '';
+      if (cfgSpaceKey) cfgSpaceKey.value = data.space_key || '';
+      if (cfgUserEmail) cfgUserEmail.value = data.user_email || '';
+      if (cfgApiToken) {
+        cfgApiToken.value = '';
+        cfgApiToken.placeholder = data.has_token ? `Stored: ${data.masked_token} (leave empty to keep)` : 'Enter Atlassian API Token';
+      }
+      if (data.use_mock) {
+        if (cfgModeMock) cfgModeMock.checked = true;
+      } else {
+        if (cfgModeLive) cfgModeLive.checked = true;
+      }
+    }
+
+    updateSettingsUIState(data);
+    return data;
+  } catch (err) {
+    console.warn('Could not load settings:', err);
+    return null;
+  }
+}
+
+function updateSettingsUIState(data) {
+  if (!data) return;
+  const isOk = data.health && data.health.status === 'ok';
+  const isLive = data.health && data.health.mode === 'live';
+  const space = data.space_key || 'AITEST';
+  const domain = (data.base_url || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '') || 'confluence';
+
+  if (settingsBadge && settingsBadgeText) {
+    if (isOk && isLive) {
+      settingsBadge.className = 'status-badge live';
+      settingsBadgeText.textContent = 'CONNECTED (LIVE)';
+      if (settingsStatusMode) settingsStatusMode.textContent = 'Mode: Live Cloud REST API';
+    } else if (isOk && !isLive) {
+      settingsBadge.className = 'status-badge mock';
+      settingsBadgeText.textContent = 'OFFLINE (MOCK)';
+      if (settingsStatusMode) settingsStatusMode.textContent = 'Mode: Local Mock Store';
+    } else {
+      settingsBadge.className = 'status-badge error';
+      settingsBadgeText.textContent = 'DISCONNECTED / ERROR';
+      if (settingsStatusMode) settingsStatusMode.textContent = 'Mode: Unavailable';
+    }
+  }
+
+  if (settingsActiveSpace) settingsActiveSpace.textContent = space;
+  if (settingsActiveDomain) settingsActiveDomain.textContent = domain;
+  if (settingsActiveUser) settingsActiveUser.textContent = data.user_email || '--';
+
+  // Update sidebar status & topbar badge
+  if (sidebarStatusDot && sidebarStatusText) {
+    if (isOk && isLive) {
+      sidebarStatusDot.style.background = '#10b981';
+      sidebarStatusText.textContent = 'Live Connected';
+    } else if (isOk) {
+      sidebarStatusDot.style.background = '#f59e0b';
+      sidebarStatusText.textContent = 'Mock Fallback';
+    } else {
+      sidebarStatusDot.style.background = '#ef4444';
+      sidebarStatusText.textContent = 'Connection Error';
+    }
+  }
+  if (sidebarFooterMeta) {
+    sidebarFooterMeta.textContent = `Space: ${space} · Confluence`;
+  }
+  if (topbarBadge) {
+    topbarBadge.textContent = `${space} · ${isLive ? 'Live Runbooks' : 'Mock Runbooks'}`;
+  }
+}
+
+function openSettingsModal() {
+  hideSettingsAlert();
+  if (settingsModal) settingsModal.classList.add('open');
+  if (settingsOverlay) settingsOverlay.classList.add('show');
+  loadSettings(true);
+  setTimeout(() => { if (cfgBaseUrl) cfgBaseUrl.focus(); }, 100);
+}
+
+function closeSettingsModal() {
+  if (settingsModal) settingsModal.classList.remove('open');
+  if (settingsOverlay) settingsOverlay.classList.remove('show');
+}
+
+function showSettingsAlert(type, title, msg) {
+  if (!settingsAlert) return;
+  settingsAlert.className = `settings-alert ${type}`;
+  if (settingsAlertTitle) settingsAlertTitle.textContent = title;
+  if (settingsAlertMsg) settingsAlertMsg.textContent = msg;
+
+  if (settingsAlertIcon) {
+    if (type === 'success') {
+      settingsAlertIcon.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+    } else if (type === 'error') {
+      settingsAlertIcon.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    } else {
+      settingsAlertIcon.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+    }
+  }
+  settingsAlert.classList.remove('hidden');
+}
+
+function hideSettingsAlert() {
+  if (settingsAlert) settingsAlert.classList.add('hidden');
+}
+
+async function handleTestConnection() {
+  const url = cfgBaseUrl.value.trim();
+  const email = cfgUserEmail.value.trim();
+  const token = cfgApiToken.value.trim();
+  const space = cfgSpaceKey.value.trim();
+
+  if (!url) {
+    showSettingsAlert('error', 'Missing URL', 'Please provide a valid Confluence Base URL.');
+    cfgBaseUrl.focus();
+    return;
+  }
+  if (!email) {
+    showSettingsAlert('error', 'Missing Email', 'Please provide your Atlassian user email.');
+    cfgUserEmail.focus();
+    return;
+  }
+  if (!space) {
+    showSettingsAlert('error', 'Missing Space Key', 'Please specify the target Confluence Space Key.');
+    cfgSpaceKey.focus();
+    return;
+  }
+
+  settingsTestBtn.disabled = true;
+  if (testSpinner) testSpinner.classList.remove('hidden');
+  if (testBtnText) testBtnText.textContent = 'Verifying...';
+  hideSettingsAlert();
+
+  try {
+    const res = await fetch('/api/settings/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        base_url: url,
+        user_email: email,
+        api_token: token || undefined,
+        space_key: space
+      })
+    });
+    const result = await res.json();
+    if (result.success) {
+      showSettingsAlert('success', 'Connection Verified ✓', result.message);
+    } else {
+      showSettingsAlert('error', 'Verification Failed ✕', result.message || 'Could not verify Confluence connectivity.');
+    }
+  } catch (err) {
+    showSettingsAlert('error', 'Network Error', `Could not contact server: ${err.message}`);
+  } finally {
+    settingsTestBtn.disabled = false;
+    if (testSpinner) testSpinner.classList.add('hidden');
+    if (testBtnText) testBtnText.textContent = 'Test Connection';
+  }
+}
+
+async function handleSaveSettings() {
+  const url = cfgBaseUrl.value.trim();
+  const email = cfgUserEmail.value.trim();
+  const token = cfgApiToken.value.trim();
+  const space = cfgSpaceKey.value.trim();
+  const useMock = cfgModeMock && cfgModeMock.checked;
+
+  if (!url) {
+    showSettingsAlert('error', 'Validation Error', 'Confluence Base URL is required.');
+    cfgBaseUrl.focus();
+    return;
+  }
+  if (!email) {
+    showSettingsAlert('error', 'Validation Error', 'Atlassian account email is required.');
+    cfgUserEmail.focus();
+    return;
+  }
+  if (!space) {
+    showSettingsAlert('error', 'Validation Error', 'Target space key is required.');
+    cfgSpaceKey.focus();
+    return;
+  }
+
+  settingsSaveBtn.disabled = true;
+  if (saveSpinner) saveSpinner.classList.remove('hidden');
+  if (saveBtnText) saveBtnText.textContent = 'Applying...';
+  hideSettingsAlert();
+
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        base_url: url,
+        user_email: email,
+        api_token: token || undefined,
+        space_key: space,
+        use_mock: useMock
+      })
+    });
+    const result = await res.json();
+    if (result.success) {
+      showSettingsAlert('success', 'Environment Switched ✓', result.message);
+      await loadSettings(false);
+    } else {
+      showSettingsAlert('error', 'Update Failed', result.message || 'Could not save settings.');
+    }
+  } catch (err) {
+    showSettingsAlert('error', 'Save Error', `Request failed: ${err.message}`);
+  } finally {
+    settingsSaveBtn.disabled = false;
+    if (saveSpinner) saveSpinner.classList.add('hidden');
+    if (saveBtnText) saveBtnText.textContent = 'Save & Switch Environment';
+  }
+}
+
+function toggleTokenVisibility() {
+  if (!cfgApiToken) return;
+  const isPass = cfgApiToken.type === 'password';
+  cfgApiToken.type = isPass ? 'text' : 'password';
+  const openEye = cfgTokenToggle.querySelector('.eye-open');
+  const closedEye = cfgTokenToggle.querySelector('.eye-closed');
+  if (openEye && closedEye) {
+    if (isPass) {
+      openEye.classList.add('hidden');
+      closedEye.classList.remove('hidden');
+    } else {
+      openEye.classList.remove('hidden');
+      closedEye.classList.add('hidden');
+    }
+  }
+}
+
+// Bind Settings Event Listeners
+if (settingsBtn) settingsBtn.addEventListener('click', openSettingsModal);
+if (sidebarSettingsBtn) sidebarSettingsBtn.addEventListener('click', openSettingsModal);
+if (settingsClose) settingsClose.addEventListener('click', closeSettingsModal);
+if (settingsOverlay) settingsOverlay.addEventListener('click', closeSettingsModal);
+if (settingsTestBtn) settingsTestBtn.addEventListener('click', handleTestConnection);
+if (settingsSaveBtn) settingsSaveBtn.addEventListener('click', handleSaveSettings);
+if (settingsResetBtn) settingsResetBtn.addEventListener('click', () => loadSettings(true));
+if (cfgTokenToggle) cfgTokenToggle.addEventListener('click', toggleTokenVisibility);
+if (settingsAlertClose) settingsAlertClose.addEventListener('click', hideSettingsAlert);
 
 // Accent swatches
 document.querySelectorAll('.swatch').forEach(s => {
@@ -886,6 +1177,9 @@ function init() {
 
   // Apply prefs (this also syncs panel active states)
   applyPrefs(prefs);
+
+  // Load Confluence settings and environment status
+  loadSettings(true);
 
   // Render history sidebar
   renderHistory();
